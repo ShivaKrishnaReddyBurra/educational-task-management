@@ -1,8 +1,9 @@
 import React from "react"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { AuthProvider } from "../components/auth-provider"
-import ProtectedLayout from "../components/protected-layout"
+import { AuthProvider } from "@/components/auth-provider"
+import ProtectedLayout from "@/components/protected-layout"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -17,6 +18,7 @@ export default function RootLayout({ children }) {
       <body className={inter.className}>
         <AuthProvider>
           <ProtectedLayout>{children}</ProtectedLayout>
+          <Toaster />
         </AuthProvider>
       </body>
     </html>
