@@ -1,0 +1,6 @@
+{
+    "java.project.sourcePaths": [
+        "backend/src",
+        "backend/taskmanagement/src/main/java/com/edulink/taskmanagement"
+    ]
+}
