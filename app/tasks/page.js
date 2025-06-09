@@ -32,7 +32,9 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
+  const [isGradeDialogOpen, setIsGradeDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedProgress, setSelectedProgress] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -40,11 +42,15 @@ export default function Tasks() {
     subject: "",
     assigneeIds: [],
   });
+  const [file, setFile] = useState(null);
   const [submitData, setSubmitData] = useState({
     taskId: 0,
-    percentageComplete: 0,
     comment: "",
-    submissionUrl: "",
+    file: null,
+  });
+  const [gradeData, setGradeData] = useState({
+    score: "",
+    feedback: "",
   });
 
   const isTutor = isRole("TUTOR");
@@ -68,7 +74,7 @@ export default function Tasks() {
         throw new Error(`Failed to fetch tasks: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
-      console.log(`Parsed response from ${endpoint}:`, data); // Log parsed data
+      console.log(`Parsed response from ${endpoint}:`, data);
       const formattedTasks = data.map((task) => ({
         id: task.id,
         title: task.title,
@@ -77,6 +83,7 @@ export default function Tasks() {
         assignedTo: task.assignees ? task.assignees.map(a => a.username).join(", ") : "None",
         status: task.status.toLowerCase(),
         subject: task.subject || "General",
+        attachmentUrl: task.attachmentUrl || null,
       }));
       setTasks(formattedTasks);
     } catch (error) {
@@ -99,7 +106,7 @@ export default function Tasks() {
         throw new Error(`Failed to fetch students: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
-      console.log("Parsed response from /api/users?role=STUDENT:", data); // Log parsed data
+      console.log("Parsed response from /api/users?role=STUDENT:", data);
       setStudents(data);
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -121,6 +128,7 @@ export default function Tasks() {
         subject: task.subject,
         assigneeIds: task.assignees ? task.assignees.map(a => a.id.toString()) : [],
       });
+      setFile(null);
     } else {
       setSelectedTask(null);
       setFormData({
@@ -130,6 +138,7 @@ export default function Tasks() {
         subject: "",
         assigneeIds: [],
       });
+      setFile(null);
     }
     setIsDialogOpen(true);
   };
@@ -138,11 +147,42 @@ export default function Tasks() {
     setSelectedTask(task);
     setSubmitData({
       taskId: task.id,
-      percentageComplete: 0,
       comment: "",
-      submissionUrl: "",
+      file: null,
     });
     setIsSubmitDialogOpen(true);
+  };
+
+  const handleOpenGradeDialog = async (task) => {
+    try {
+      const response = await fetch(`${API_URL}/progress/task/${task.id}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch progress: ${errorText}`);
+      }
+      const progressData = await response.json();
+      if (progressData.length > 0) {
+        setSelectedProgress(progressData[0]); // Assuming one progress per student per task for simplicity
+        setGradeData({
+          score: progressData[0].score || "",
+          feedback: progressData[0].comment || "",
+        });
+        setIsGradeDialogOpen(true);
+      } else {
+        toast({
+          title: "No Submission",
+          description: "No submissions found for this task.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching progress:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load submission.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleInputChange = (e) => {
@@ -150,9 +190,78 @@ export default function Tasks() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const maxSize = 10 * 1024 * 1024;
+      if (selectedFile.size > maxSize) {
+        toast({
+          title: "Error",
+          description: "File size exceeds 10MB limit.",
+          variant: "destructive",
+        });
+        e.target.value = null;
+        return;
+      }
+      const validTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+      ];
+      if (!validTypes.includes(selectedFile.type)) {
+        toast({
+          title: "Error",
+          description: "Invalid file type. Only PDF, DOC, DOCX, and TXT allowed.",
+          variant: "destructive",
+        });
+        e.target.value = null;
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const handleSubmissionFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const maxSize = 10 * 1024 * 1024;
+      if (selectedFile.size > maxSize) {
+        toast({
+          title: "Error",
+          description: "File size exceeds 10MB limit.",
+          variant: "destructive",
+        });
+        e.target.value = null;
+        return;
+      }
+      const validTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+      ];
+      if (!validTypes.includes(selectedFile.type)) {
+        toast({
+          title: "Error",
+          description: "Invalid file type. Only PDF, DOC, DOCX, and TXT allowed.",
+          variant: "destructive",
+        });
+        e.target.value = null;
+        return;
+      }
+      setSubmitData((prev) => ({ ...prev, file: selectedFile }));
+    }
+  };
+
   const handleSubmitInputChange = (e) => {
     const { name, value } = e.target;
     setSubmitData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleGradeInputChange = (e) => {
+    const { name, value } = e.target;
+    setGradeData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name, value) => {
@@ -172,7 +281,7 @@ export default function Tasks() {
         ? `${API_URL}/tasks/${selectedTask.id}?tutorId=${user.id}`
         : `${API_URL}/tasks?tutorId=${user.id}`;
 
-      const apiData = {
+      const taskData = {
         title: formData.title,
         description: formData.description,
         deadline: new Date(formData.dueDate).toISOString(),
@@ -180,12 +289,15 @@ export default function Tasks() {
         assigneeIds: formData.assigneeIds.map(id => parseInt(id)),
       };
 
+      const formDataToSend = new FormData();
+      formDataToSend.append("task", JSON.stringify(taskData));
+      if (file) {
+        formDataToSend.append("file", file);
+      }
+
       const response = await fetch(endpoint, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(apiData),
+        body: formDataToSend,
       });
 
       if (!response.ok) {
@@ -196,6 +308,7 @@ export default function Tasks() {
       console.log(`Parsed response from ${endpoint}:`, data);
 
       setIsDialogOpen(false);
+      setFile(null);
       fetchTasks();
 
       toast({
@@ -215,17 +328,20 @@ export default function Tasks() {
   const handleSubmitProgress = async (e) => {
     e.preventDefault();
     try {
+      const submissionData = {
+        taskId: submitData.taskId,
+        comment: submitData.comment,
+      };
+
+      const formData = new FormData();
+      formData.append("submission", JSON.stringify(submissionData));
+      if (submitData.file) {
+        formData.append("file", submitData.file);
+      }
+
       const response = await fetch(`${API_URL}/progress/submit?studentId=${user.id}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          taskId: submitData.taskId,
-          percentageComplete: parseInt(submitData.percentageComplete),
-          comment: submitData.comment,
-          submissionUrl: submitData.submissionUrl,
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -247,6 +363,44 @@ export default function Tasks() {
       toast({
         title: "Error",
         description: "Failed to submit progress",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGradeSubmission = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_URL}/progress/grade/${selectedProgress.id}?tutorId=${user.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          score: parseInt(gradeData.score),
+          feedback: gradeData.feedback,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to grade submission: ${errorText}`);
+      }
+      const data = await response.json();
+      console.log("Parsed response from grade submission:", data);
+
+      setIsGradeDialogOpen(false);
+      fetchTasks();
+
+      toast({
+        title: "Success",
+        description: "Submission graded successfully",
+      });
+    } catch (error) {
+      console.error("Error grading submission:", error);
+      toast({
+        title: "Error",
+        description: "Failed to grade submission",
         variant: "destructive",
       });
     }
@@ -302,13 +456,14 @@ export default function Tasks() {
                 <TableHead className="w-[150px]">Subject</TableHead>
                 <TableHead className="w-[200px]">Assigned To</TableHead>
                 <TableHead className="w-[150px]">Status</TableHead>
+                <TableHead className="w-[150px]">Attachment</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tasks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     No tasks found
                   </TableCell>
                 </TableRow>
@@ -321,6 +476,15 @@ export default function Tasks() {
                     <TableCell>{task.assignedTo}</TableCell>
                     <TableCell>
                       <StatusBadge status={task.status} />
+                    </TableCell>
+                    <TableCell>
+                      {task.attachmentUrl ? (
+                        <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                          Download Attachment
+                        </a>
+                      ) : (
+                        "None"
+                      )}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -337,6 +501,9 @@ export default function Tasks() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDeleteTask(task.id)}>
                                 <Trash className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenGradeDialog(task)}>
+                                <Plus className="h-4 w-4 mr-2" /> Grade Submission
                               </DropdownMenuItem>
                             </>
                           )}
@@ -408,6 +575,16 @@ export default function Tasks() {
                   </Select>
                 </div>
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="file">Attachment (Optional)</Label>
+                <Input
+                  id="file"
+                  name="file"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={handleFileChange}
+                />
+              </div>
               {isTutor && (
                 <div className="grid gap-2">
                   <Label htmlFor="assigneeIds">Assign To</Label>
@@ -447,19 +624,6 @@ export default function Tasks() {
           <form onSubmit={handleSubmitProgress}>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="percentageComplete">Completion Percentage</Label>
-                <Input
-                  id="percentageComplete"
-                  name="percentageComplete"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={submitData.percentageComplete}
-                  onChange={handleSubmitInputChange}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="comment">Comments</Label>
                 <Textarea
                   id="comment"
@@ -471,14 +635,14 @@ export default function Tasks() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="submissionUrl">Submission URL (optional)</Label>
+                <Label htmlFor="file">Submission File</Label>
                 <Input
-                  id="submissionUrl"
-                  name="submissionUrl"
-                  type="url"
-                  value={submitData.submissionUrl}
-                  onChange={handleSubmitInputChange}
-                  placeholder="https://example.com/my-submission"
+                  id="file"
+                  name="file"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={handleSubmissionFileChange}
+                  required
                 />
               </div>
             </div>
@@ -487,6 +651,59 @@ export default function Tasks() {
                 Cancel
               </Button>
               <Button type="submit">Submit Progress</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isGradeDialogOpen} onOpenChange={setIsGradeDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Grade Submission</DialogTitle>
+            <DialogDescription>Grade the submission for: {selectedProgress?.task.title}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleGradeSubmission}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="submissionFile">Submission File</Label>
+                {selectedProgress?.submissionFileUrl ? (
+                  <a href={selectedProgress.submissionFileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    Download Submission
+                  </a>
+                ) : (
+                  <span>No file submitted</span>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="score">Score</Label>
+                <Input
+                  id="score"
+                  name="score"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={gradeData.score}
+                  onChange={handleGradeInputChange}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="feedback">Feedback</Label>
+                <Textarea
+                  id="feedback"
+                  name="feedback"
+                  value={gradeData.feedback}
+                  onChange={handleGradeInputChange}
+                  rows={3}
+                  placeholder="Add feedback for the submission"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsGradeDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Submit Grade</Button>
             </DialogFooter>
           </form>
         </DialogContent>

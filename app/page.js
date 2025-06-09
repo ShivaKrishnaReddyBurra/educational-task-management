@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PageHeader from "../components/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import StatusBadge from "../components/status-badge";
+import PageHeader from "@/components/page-header";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import StatusBadge from "@/components/status-badge";
 import { ArrowUpRight, Clock } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { useAuth } from "../components/auth-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/components/auth-provider";
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
+  const { toast } = useToast();
   const { user, isRole } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [students, setStudents] = useState([]);
@@ -29,6 +31,7 @@ export default function Dashboard() {
     subject: "",
     maxScore: "",
   });
+  const [file, setFile] = useState(null);
   const [submission, setSubmission] = useState({
     percentageComplete: "",
     comment: "",
@@ -38,14 +41,12 @@ export default function Dashboard() {
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openSubmitDialog, setOpenSubmitDialog] = useState(null);
 
-  // Fetch tasks and students based on user role
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch tasks
         const taskEndpoint = isRole("STUDENT")
           ? `/api/tasks/student/${user.id}`
           : `/api/tasks/tutor/${user.id}`;
@@ -57,7 +58,6 @@ export default function Dashboard() {
         setTasks(taskData);
         setSelectedTask(taskData.length > 0 ? taskData[taskData.length - 1] : null);
 
-        // Fetch students (for tutors only)
         if (isRole("TUTOR")) {
           const studentResponse = await fetch(`http://localhost:8080/api/users?role=STUDENT`);
           const studentText = await studentResponse.text();
@@ -68,33 +68,50 @@ export default function Dashboard() {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load data. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [user, isRole]);
+  }, [user, isRole, toast]);
 
-  // Handle task creation (Tutor)
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!newTask.title || !newTask.deadline || newTask.assigneeIds.length === 0) return;
+    if (!newTask.title || !newTask.deadline || newTask.assigneeIds.length === 0) {
+      toast({
+        title: "Error",
+        description: "Title, deadline, and assignees are required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
+      const taskData = {
+        title: newTask.title,
+        description: newTask.description,
+        deadline: new Date(newTask.deadline).toISOString(),
+        assigneeIds: newTask.assigneeIds.map(id => parseInt(id)).filter(id => !isNaN(id)),
+        subject: newTask.subject || "General",
+        maxScore: parseInt(newTask.maxScore) || 100,
+      };
+
+      const formData = new FormData();
+      formData.append("task", JSON.stringify(taskData));
+      if (file) {
+        formData.append("file", file); // Ensure backend API can handle FormData
+      }
+
       const response = await fetch(`http://localhost:8080/api/tasks?tutorId=${user.id}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: newTask.title,
-          description: newTask.description,
-          deadline: newTask.deadline,
-          assigneeIds: newTask.assigneeIds.map(id => parseInt(id)),
-          subject: newTask.subject || "General",
-          maxScore: parseInt(newTask.maxScore) || 100,
-        }),
+        body: formData,
       });
+
       const text = await response.text();
       console.log("Raw response from task creation:", text);
       if (!response.ok) throw new Error(`Failed to create task: ${response.status} - ${text}`);
@@ -102,13 +119,54 @@ export default function Dashboard() {
       setTasks([...tasks, createdTask]);
       setSelectedTask(createdTask);
       setNewTask({ title: "", description: "", deadline: "", assigneeIds: [], subject: "", maxScore: "" });
+      setFile(null);
       setOpenTaskDialog(false);
+      toast({
+        title: "Success",
+        description: "Task created successfully.",
+      });
     } catch (error) {
       console.error("Error creating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create task.",
+        variant: "destructive",
+      });
     }
   };
 
-  // Handle task submission (Student)
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (selectedFile.size > maxSize) {
+        toast({
+          title: "Error",
+          description: "File size exceeds 10MB limit.",
+          variant: "destructive",
+        });
+        e.target.value = null;
+        return;
+      }
+      const validTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+      ];
+      if (!validTypes.includes(selectedFile.type)) {
+        toast({
+          title: "Error",
+          description: "Invalid file type. Only PDF, DOC, DOCX, and TXT allowed.",
+          variant: "destructive",
+        });
+        e.target.value = null;
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
   const handleSubmitTask = async (taskId, e) => {
     e.preventDefault();
     try {
@@ -135,8 +193,17 @@ export default function Dashboard() {
       );
       setSubmission({ percentageComplete: "", comment: "", submissionUrl: "" });
       setOpenSubmitDialog(null);
+      toast({
+        title: "Success",
+        description: "Progress successfully submitted.",
+      });
     } catch (error) {
       console.error("Error submitting task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit progress.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -146,12 +213,11 @@ export default function Dashboard() {
     <div className="p-6">
       <PageHeader title="Dashboard" />
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {isRole("TUTOR") ? (
           <>
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium text-[#64748b]">Tutor Details</CardTitle>
               </CardHeader>
               <CardContent>
@@ -160,7 +226,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-4">
                 <CardTitle className="text-sm font-medium text-[#64748b]">Total Students</CardTitle>
               </CardHeader>
               <CardContent>
@@ -171,7 +237,7 @@ export default function Dashboard() {
           </>
         ) : (
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium text-[#64748b]">Total Assigned Tasks</CardTitle>
             </CardHeader>
             <CardContent>
@@ -186,7 +252,7 @@ export default function Dashboard() {
           </Card>
         )}
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-4">
             <CardTitle className="text-sm font-medium text-[#64748b]">Total Tasks</CardTitle>
           </CardHeader>
           <CardContent>
@@ -202,7 +268,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Task Details/Create Section */}
         <Card>
           <CardHeader>
             <CardTitle>{isRole("TUTOR") ? "Task Details" : "Your Progress"}</CardTitle>
@@ -235,16 +300,21 @@ export default function Dashboard() {
                       onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
                       required
                     />
+                    <Input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={handleFileChange}
+                    />
                     <select
                       multiple
                       value={newTask.assigneeIds}
                       onChange={(e) =>
                         setNewTask({
                           ...newTask,
-                          assigneeIds: Array.from(e.target.selectedOptions, option => option.value),
+                          assigneeIds: Array.from(e.target.selectedOptions, (option) => option.value),
                         })
                       }
-                      className="w-full p-2 border rounded h-32" // Increased height for better visibility
+                      className="w-full p-2 border rounded h-16"
                       required
                     >
                       {students.map((student) => (
@@ -283,9 +353,23 @@ export default function Dashboard() {
                   <span className="font-medium text-gray-700 mr-2">Status:</span>
                   <StatusBadge status={selectedTask.status.toLowerCase()} />
                 </div>
+                {selectedTask.attachmentUrl && (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Attachment:</span>{" "}
+                    <a
+                      href={selectedTask.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      Download Attachment <ArrowUpRight className="inline h-4 w-4" />
+                    </a>
+                  </div>
+                )}
                 {isRole("TUTOR") && selectedTask.assignees && (
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Assignees:</span> {selectedTask.assignees.map(a => a.username).join(", ")}
+                    <span className="font-medium">Assignees:</span>{" "}
+                    {selectedTask.assignees.map((a) => a.username).join(", ")}
                   </p>
                 )}
               </div>
@@ -295,7 +379,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Tasks */}
         <Card>
           <CardHeader>
             <CardTitle>Recent Tasks</CardTitle>
@@ -304,8 +387,8 @@ export default function Dashboard() {
             {loading ? (
               <p>Loading tasks...</p>
             ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto"> {/* Fixed height with scroll */}
-                {tasks.map((task) => ( // Limit to 7 tasks
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {tasks.map((task) => (
                   <div
                     key={task.id}
                     className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-50"
@@ -317,13 +400,30 @@ export default function Dashboard() {
                         <Clock className="h-3 w-3 mr-1" />
                         {new Date(task.deadline).toLocaleString()}
                       </div>
+                      {task.attachmentUrl && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          <a
+                            href={task.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            Attachment
+                          </a>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
                       <StatusBadge status={task.status.toLowerCase()} />
                       {isRole("STUDENT") && task.status !== "COMPLETED" && (
-                        <Dialog open={openSubmitDialog === task.id} onOpenChange={(open) => setOpenSubmitDialog(open ? task.id : null)}>
+                        <Dialog
+                          open={openSubmitDialog === task.id}
+                          onOpenChange={(open) => setOpenSubmitDialog(open ? task.id : null)}
+                        >
                           <DialogTrigger asChild>
-                            <Button size="sm" onClick={(e) => e.stopPropagation()}>Submit</Button>
+                            <Button size="sm" onClick={(e) => e.stopPropagation()}>
+                              Submit
+                            </Button>
                           </DialogTrigger>
                           <DialogContent className="bg-white">
                             <DialogHeader>
@@ -334,7 +434,9 @@ export default function Dashboard() {
                                 placeholder="Percentage Complete (0-100)"
                                 type="number"
                                 value={submission.percentageComplete}
-                                onChange={(e) => setSubmission({ ...submission, percentageComplete: e.target.value })}
+                                onChange={(e) =>
+                                  setSubmission({ ...submission, percentageComplete: e.target.value })
+                                }
                                 required
                               />
                               <Input

@@ -6,6 +6,8 @@ import com.edulink.taskmanagement.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,7 +18,10 @@ import java.util.List;
 public class TaskController {
 
     @Autowired
-    private TaskService taskService; // Interface type, Spring injects TaskServiceImpl
+    private TaskService taskService;
+
+    @Autowired
+    private ObjectMapper objectMapper; // Add ObjectMapper for JSON parsing
 
     @GetMapping
     public ResponseEntity<List<Task>> getAllTasks() {
@@ -32,18 +37,33 @@ public class TaskController {
         }
     }
 
-    @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody TaskRequest taskRequest, @RequestParam Long tutorId) {
-        Task task = taskService.createTask(taskRequest, tutorId);
-        return ResponseEntity.ok(task);
+    @PostMapping(consumes = {"multipart/form-data"})
+    public ResponseEntity<Task> createTask(
+            @RequestPart("task") String taskJson,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam Long tutorId) {
+        try {
+            TaskRequest taskRequest = objectMapper.readValue(taskJson, TaskRequest.class);
+            taskRequest.setFile(file);
+            Task task = taskService.createTask(taskRequest, tutorId);
+            return ResponseEntity.ok(task);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(null);
+        }
     }
 
-    @PutMapping("/{taskId}")
-    public ResponseEntity<Task> updateTask(@PathVariable Long taskId, @RequestBody TaskRequest taskRequest, @RequestParam Long tutorId) {
+    @PutMapping(value = "/{taskId}", consumes = {"multipart/form-data"})
+    public ResponseEntity<Task> updateTask(
+            @PathVariable Long taskId,
+            @RequestPart("task") String taskJson,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam Long tutorId) {
         try {
+            TaskRequest taskRequest = objectMapper.readValue(taskJson, TaskRequest.class);
+            taskRequest.setFile(file);
             Task updatedTask = taskService.updateTask(taskId, taskRequest, tutorId);
             return ResponseEntity.ok(updatedTask);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(null);
         }
     }
