@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [router, pathname]);
 
-  const signup = async (name, email, username, password, role) => {
+  const signup = async (name, email, password, role) => {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/auth/signup`, {
@@ -44,7 +44,6 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({
           name,
           email,
-          username,
           password,
           role,
         }),
@@ -90,7 +89,6 @@ export function AuthProvider({ children }) {
 
       const userData = {
         id: data.id,
-        username: data.username,
         email: data.email,
         name: data.name,
         role: data.role,

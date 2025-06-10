@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,13 +18,35 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [role, setRole] = useState("STUDENT"); // Default to STUDENT
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState("");
+  const [activeTab, setActiveTab] = useState("email");
+  const [signShowPassword, setSignShowPassword] = useState(false);
+  const [loginShowPassword, setLoginShowPassword] = useState(false);
 
+  const evaluatePasswordStrength = (password) => {
+  let score = 0;
+  if (password.length >= 8) score++;           // minimum length requirement
+  if (/[A-Z]/.test(password)) score++;           // uppercase letters
+  if (/[0-9]/.test(password)) score++;           // digits
+  if (/[\W_]/.test(password)) score++;           // special characters
+
+  if (score <= 1) return "Weak";
+  if (score === 2) return "Moderate";
+  if (score >= 3) return "Strong";
+  };
+
+ 
+
+  const handlePasswordChange = (e) => {
+    const pwd = e.target.value;
+    setSignupPassword(pwd);
+    setPasswordStrength(evaluatePasswordStrength(pwd));
+  };
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -45,7 +68,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      await signup(name, signupEmail, username, signupPassword, role);
+      await signup(name, signupEmail, signupPassword, role);
       // After signup, automatically log in
       await login(signupEmail, signupPassword);
       router.push("/");
@@ -69,10 +92,10 @@ export default function LoginPage() {
           <CardDescription>Sign in or create your educational task management account</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+
+          <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="email">Email Login</TabsTrigger>
-              <TabsTrigger value="student-id">Student ID</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
 
@@ -100,39 +123,49 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <a href="#" className="text-xs text-[#1f5aad] hover:underline">
+                      {/* <a href="#" className="text-xs text-[#1f5aad] hover:underline">
                         Forgot password?
-                      </a>
+                      </a> */}
                     </div>
-                    <Input
+                    <div className="relative">
+                      <Input
                       id="password"
-                      type="password"
+                      type={loginShowPassword ? "text" : "password"}
+                      placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
+                     <button
+                      type="button"
+                      onClick={() => setLoginShowPassword(!loginShowPassword)}
+                      className="absolute right-3 top-2.5 text-gray-600 hover:text-black"
+                    >
+                      {loginShowPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                    </div>
+                    
                   </div>
                   <Button type="submit" className="w-full bg-[#1f5aad] hover:bg-[#1f5aad]/90" disabled={loading}>
                     {loading ? "Signing in..." : "Sign In"}
                   </Button>
                 </div>
+                <br/>
+                {/* <div> 
+                  New User?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("signup")}
+                    className="text-[#1f5aad] hover:underline"
+                  >
+                    Sign up here
+                  </button>
+                  </div> */}
               </form>
             </TabsContent>
 
             {/* Student ID Tab (Placeholder) */}
-            <TabsContent value="student-id">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="student-id">Student ID</Label>
-                  <Input id="student-id" type="text" placeholder="Enter your student ID" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password-id">Password</Label>
-                  <Input id="password-id" type="password" />
-                </div>
-                <Button className="w-full bg-[#1f5aad] hover:bg-[#1f5aad]/90">Sign In with Student ID</Button>
-              </div>
-            </TabsContent>
+            
 
             {/* Signup Tab */}
             <TabsContent value="signup">
@@ -166,27 +199,43 @@ export default function LoginPage() {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input
-                      id="username"
-                      type="text"
-                      placeholder="johndoe123"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                    />
-                  </div>
+                 
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
-                    <Input
+                    <div className="relative">
+                      <Input
                       id="signup-password"
-                      type="password"
+                      type={signShowPassword ? "text" : "password"}
+                      placeholder="Enter your password"
                       value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
+                      onChange={handlePasswordChange}
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setSignShowPassword(!signShowPassword)}
+                      className="absolute right-3 top-2.5 text-gray-600 hover:text-black"
+                    >
+                      {signShowPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                    </div>
+                    
+                    
+                    {signupPassword && (
+                      <p
+                        className={`mt-1 text-sm ${
+                          passwordStrength === "Weak"
+                            ? "text-red-500"
+                            : passwordStrength === "Moderate"
+                            ? "text-yellow-500"
+                            : "text-green-500"
+                        }`}
+                      >
+                        Password strength: {passwordStrength}
+                      </p>
+                    )}
                   </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
                     <select
@@ -203,18 +252,22 @@ export default function LoginPage() {
                     {loading ? "Signing up..." : "Sign Up"}
                   </Button>
                 </div>
+                <br/>
+                {/* <div> 
+                  already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("email")}
+                    className="text-[#1f5aad] hover:underline"
+                  >
+                    Sign in here
+                  </button>
+                  </div> */}
               </form>
             </TabsContent>
           </Tabs>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-center text-sm text-[#64748b]">
-            Already have an account?{" "}
-            <button onClick={() => router.push("/login")} className="text-[#1f5aad] hover:underline">
-              Sign in here
-            </button>
-          </div>
-        </CardFooter>
+        
       </Card>
     </div>
   );
