@@ -453,17 +453,15 @@ export default function Tasks() {
               <TableRow>
                 <TableHead className="w-[300px]">Task Title</TableHead>
                 <TableHead className="w-[150px]">Due Date</TableHead>
-                <TableHead className="w-[150px]">Subject</TableHead>
                 <TableHead className="w-[200px]">Assigned To</TableHead>
                 <TableHead className="w-[150px]">Status</TableHead>
                 <TableHead className="w-[150px]">Attachment</TableHead>
-                <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tasks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                     No tasks found
                   </TableCell>
                 </TableRow>
@@ -472,7 +470,6 @@ export default function Tasks() {
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">{task.title}</TableCell>
                     <TableCell>{task.dueDate}</TableCell>
-                    <TableCell>{task.subject}</TableCell>
                     <TableCell>{task.assignedTo}</TableCell>
                     <TableCell>
                       <StatusBadge status={task.status} />
@@ -485,35 +482,6 @@ export default function Tasks() {
                       ) : (
                         "None"
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {isTutor && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleOpenDialog(task)}>
-                                <Edit className="h-4 w-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDeleteTask(task.id)}>
-                                <Trash className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleOpenGradeDialog(task)}>
-                                <Plus className="h-4 w-4 mr-2" /> Grade Submission
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {isStudent && task.status !== "completed" && (
-                            <DropdownMenuItem onClick={() => handleOpenSubmitDialog(task)}>
-                              <Plus className="h-4 w-4 mr-2" /> Submit Progress
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

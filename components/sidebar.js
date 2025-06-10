@@ -10,13 +10,17 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout, isRole } = useAuth();
 
+  // Define navigation items, conditionally including Reports and Statistics for tutors only
   const navigation = [
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Deadlines", href: "/deadlines", icon: Clock },
     { name: "Tasks", href: "/tasks", icon: ClipboardList },
     ...(isRole("TUTOR") ? [{ name: "Students", href: "/students", icon: Users }] : []), // Only tutors see "Students"
-    { name: "Reports", href: "/reports", icon: BarChart3 },
-    { name: "Statistics", href: "/statistics", icon: PieChart },
+    // Conditionally add Reports and Statistics for tutors only
+    ...(isRole("TUTOR") ? [
+      { name: "Reports", href: "/reports", icon: BarChart3 },
+      { name: "Statistics", href: "/statistics", icon: PieChart },
+    ] : []),
     { name: "Calendar", href: "/calendar", icon: Calendar },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
