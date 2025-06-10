@@ -5,9 +5,9 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const uploadsDir = path.join(process.cwd(), 'backend/taskmanagement/uploads');
     
-    // Check if uploads directory exists
+    // Check if uploads directory b
     if (!fs.existsSync(uploadsDir)) {
       return NextResponse.json([]);
     }
