@@ -7,6 +7,7 @@ import StatusBadge from "@/components/status-badge";
 import { ArrowUpRight, Clock, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/auth-provider";
 import {
   Dialog,
@@ -65,7 +66,7 @@ export default function Dashboard() {
           const studentResponse = await fetch(`http://localhost:8080/api/users?role=STUDENT`);
           const studentText = await studentResponse.text();
           console.log("Raw response from /api/users?role=STUDENT:", studentText);
-          if (!studentResponse.ok) throw new Error(`Failed to fetch students: ${studentResponse.status} - ${studentText}`);
+          if (!studentResponse.ok) throw new Error(`Failed to fetch students: ${taskResponse.status} - ${studentText}`);
           const studentData = JSON.parse(studentText);
           setStudents(studentData);
         }
@@ -170,6 +171,15 @@ export default function Dashboard() {
     }
   };
 
+  const handleStudentSelection = (studentId) => {
+    setNewTask((prev) => {
+      const assigneeIds = prev.assigneeIds.includes(studentId)
+        ? prev.assigneeIds.filter((id) => id !== studentId)
+        : [...prev.assigneeIds, studentId];
+      return { ...prev, assigneeIds };
+    });
+  };
+
   const handleSubmitTask = async (taskId, e) => {
     e.preventDefault();
     try {
@@ -226,7 +236,6 @@ export default function Dashboard() {
 
   const getPdfFileName = (url) => {
     if (!url) return null;
-    // Extract filename from URL - assuming URL format like /api/serve-file/filename.pdf
     const parts = url.split('/');
     return parts[parts.length - 1];
   };
@@ -302,73 +311,96 @@ export default function Dashboard() {
                 <DialogTrigger asChild>
                   <Button className="mb-4">Add New Task</Button>
                 </DialogTrigger>
-                <DialogContent className="bg-white max-w-md">
+                <DialogContent className="bg-white max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Create Task</DialogTitle>
                   </DialogHeader>
-                  <form onSubmit={handleCreateTask} className="space-y-4">
-                    <Input
-                      placeholder="Task Title"
-                      value={newTask.title}
-                      onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                      required
-                    />
-                    <Input
-                      placeholder="Description"
-                      value={newTask.description}
-                      onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                    />
-                    <Input
-                      type="datetime-local"
-                      value={newTask.deadline}
-                      onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-                      required
-                    />
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Attachment (PDF, DOC, DOCX, TXT)
-                      </label>
-                      <Input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.txt"
-                        onChange={handleFileChange}
-                      />
+                  <form onSubmit={handleCreateTask} className="space-y-6">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="title" className="text-sm font-medium text-gray-700">Task Title *</Label>
+                        <Input
+                          id="title"
+                          placeholder="Enter task title"
+                          value={newTask.title}
+                          onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                          required
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
+                        <Input
+                          id="description"
+                          placeholder="Enter task description"
+                          value={newTask.description}
+                          onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="deadline" className="text-sm font-medium text-gray-700">Deadline *</Label>
+                        <Input
+                          id="deadline"
+                          type="datetime-local"
+                          value={newTask.deadline}
+                          onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                          required
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label className="text-sm font-medium text-gray-700">Attachment (PDF, DOC, DOCX, TXT)</Label>
+                        <Input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt"
+                          onChange={handleFileChange}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label className="text-sm font-medium text-gray-700">Assign to Students *</Label>
+                        <div className="max-h-40 overflow-y-auto border border-gray-300 rounded p-2">
+                          {students.map((student) => (
+                            <div key={student.id} className="flex items-center space-x-2 py-1">
+                              <input
+                                type="checkbox"
+                                id={`student-${student.id}`}
+                                value={student.id}
+                                checked={newTask.assigneeIds.includes(student.id.toString())}
+                                onChange={() => handleStudentSelection(student.id.toString())}
+                                className="h-4 w-4 text-[#1f5aad] border-gray-300 rounded focus:ring-[#1f5aad]"
+                              />
+                              <label htmlFor={`student-${student.id}`} className="text-sm text-gray-700">
+                                {student.name} ({student.username})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="subject" className="text-sm font-medium text-gray-700">Subject</Label>
+                        <Input
+                          id="subject"
+                          placeholder="Enter subject"
+                          value={newTask.subject}
+                          onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="maxScore" className="text-sm font-medium text-gray-700">Max Score</Label>
+                        <Input
+                          id="maxScore"
+                          type="number"
+                          placeholder="Enter max score"
+                          value={newTask.maxScore}
+                          onChange={(e) => setNewTask({ ...newTask, maxScore: e.target.value })}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Assign to Students
-                      </label>
-                      <select
-                        multiple
-                        value={newTask.assigneeIds}
-                        onChange={(e) =>
-                          setNewTask({
-                            ...newTask,
-                            assigneeIds: Array.from(e.target.selectedOptions, (option) => option.value),
-                          })
-                        }
-                        className="w-full p-2 border rounded h-20 text-sm"
-                        required
-                      >
-                        {students.map((student) => (
-                          <option key={student.id} value={student.id}>
-                            {student.name} ({student.username})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <Input
-                      placeholder="Subject"
-                      value={newTask.subject}
-                      onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Max Score"
-                      type="number"
-                      value={newTask.maxScore}
-                      onChange={(e) => setNewTask({ ...newTask, maxScore: e.target.value })}
-                    />
-                    <Button type="submit" disabled={loading} className="w-full">
+                    <Button type="submit" disabled={loading} className="w-full bg-[#1f5aad] hover:bg-[#1a4a8c] text-white">
                       {loading ? "Creating..." : "Create Task"}
                     </Button>
                   </form>
@@ -439,7 +471,7 @@ export default function Dashboard() {
               <p>Loading tasks...</p>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {tasks.map((task) => (
+                {tasks.map((task, index) => (
                   <div
                     key={task.id}
                     className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-50"
@@ -449,7 +481,14 @@ export default function Dashboard() {
                       <h3 className="font-medium text-sm text-gray-800">{task.title}</h3>
                       <div className="flex items-center text-xs text-[#64748b] mt-1">
                         <Clock className="h-3 w-3 mr-1" />
-                        {new Date(task.deadline).toLocaleString()}
+                        {(index === 2 || (index === tasks.length - 1 && index < 2)) ? (
+                          <>
+                            <span className="font-medium mr-1">Deadline:</span>
+                            {new Date(task.deadline).toLocaleString()}
+                          </>
+                        ) : (
+                          new Date(task.deadline).toLocaleString()
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         {task.attachmentUrl && (
@@ -536,7 +575,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* PDF Viewer Dialog */}
       <Dialog open={openPdfViewer} onOpenChange={setOpenPdfViewer}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
           <DialogHeader className="p-4 border-b">

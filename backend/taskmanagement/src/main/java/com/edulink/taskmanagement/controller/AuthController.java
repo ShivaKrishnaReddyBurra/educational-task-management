@@ -24,9 +24,8 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signupRequest) {
-        logger.info("Processing signup request for username: {}", signupRequest.getUsername());
-        if (userRepository.existsByUsername(signupRequest.getUsername())) {
-            logger.warn("Signup failed: Username {} already taken", signupRequest.getUsername());
+
+        if (userRepository.existsByEmail(signupRequest.getEmail())) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Username is already taken!"));
         }
@@ -44,7 +43,6 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setUsername(signupRequest.getUsername());
         user.setEmail(signupRequest.getEmail());
         user.setPassword(signupRequest.getPassword()); // Plain text for simplicity
         user.setName(signupRequest.getName());
@@ -72,14 +70,13 @@ public class AuthController {
                         .body(new MessageResponse("Error: Invalid password"));
             }
 
-            UserResponse userResponse = new UserResponse(
-                    user.getId(),
-                    user.getUsername(),
-                    user.getEmail(),
-                    user.getName(),
-                    user.getRole()
-            );
-            logger.info("User {} signed in successfully", user.getUsername());
+
+        UserResponse userResponse = new UserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getName(),
+                user.getRole()
+        );
 
             return ResponseEntity.ok(userResponse);
         } catch (RuntimeException e) {
