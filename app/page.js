@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import PageHeader from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import StatusBadge from "@/components/status-badge";
-import { ArrowUpRight, Clock } from "lucide-react";
+import { ArrowUpRight, Clock, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/components/auth-provider";
 import {
   Dialog,
@@ -40,6 +41,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [openTaskDialog, setOpenTaskDialog] = useState(false);
   const [openSubmitDialog, setOpenSubmitDialog] = useState(null);
+  const [openPdfViewer, setOpenPdfViewer] = useState(false);
+  const [selectedPdfUrl, setSelectedPdfUrl] = useState("");
+  const [selectedPdfTitle, setSelectedPdfTitle] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -62,7 +66,7 @@ export default function Dashboard() {
           const studentResponse = await fetch(`http://localhost:8080/api/users?role=STUDENT`);
           const studentText = await studentResponse.text();
           console.log("Raw response from /api/users?role=STUDENT:", studentText);
-          if (!studentResponse.ok) throw new Error(`Failed to fetch students: ${studentResponse.status} - ${studentText}`);
+          if (!studentResponse.ok) throw new Error(`Failed to fetch students: ${taskResponse.status} - ${studentText}`);
           const studentData = JSON.parse(studentText);
           setStudents(studentData);
         }
@@ -104,7 +108,7 @@ export default function Dashboard() {
       const formData = new FormData();
       formData.append("task", JSON.stringify(taskData));
       if (file) {
-        formData.append("file", file); // Ensure backend API can handle FormData
+        formData.append("file", file);
       }
 
       const response = await fetch(`http://localhost:8080/api/tasks?tutorId=${user.id}`, {
@@ -167,28 +171,45 @@ export default function Dashboard() {
     }
   };
 
+  const handleStudentSelection = (studentId) => {
+    setNewTask((prev) => {
+      const assigneeIds = prev.assigneeIds.includes(studentId)
+        ? prev.assigneeIds.filter((id) => id !== studentId)
+        : [...prev.assigneeIds, studentId];
+      return { ...prev, assigneeIds };
+    });
+  };
+
   const handleSubmitTask = async (taskId, e) => {
     e.preventDefault();
     try {
+      const submissionData = {
+        taskId,
+        percentageComplete: parseInt(submission.percentageComplete) || 100,
+        comment: submission.comment,
+        submissionUrl: submission.submissionUrl,
+      };
+
       const response = await fetch(`http://localhost:8080/api/progress/submit?studentId=${user.id}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          taskId,
-          percentageComplete: parseInt(submission.percentageComplete) || 100,
-          comment: submission.comment,
-          submissionUrl: submission.submissionUrl,
-        }),
+        body: JSON.stringify(submissionData),
       });
+
       const text = await response.text();
       console.log("Raw response from task submission:", text);
       if (!response.ok) throw new Error(`Failed to submit task: ${response.status} - ${text}`);
       const updatedProgress = JSON.parse(text);
+
       setTasks(
         tasks.map((task) =>
-          task.id === taskId ? { ...task, status: updatedProgress.percentageComplete === 100 ? "COMPLETED" : "PENDING" } : task
+          task.id === taskId ? {
+            ...task,
+            status: updatedProgress.percentageComplete === 100 ? "COMPLETED" : "PENDING",
+            submissionUrl: updatedProgress.submissionUrl
+          } : task
         )
       );
       setSubmission({ percentageComplete: "", comment: "", submissionUrl: "" });
@@ -205,6 +226,18 @@ export default function Dashboard() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleViewPdf = (pdfUrl, title) => {
+    setSelectedPdfUrl(pdfUrl);
+    setSelectedPdfTitle(title);
+    setOpenPdfViewer(true);
+  };
+
+  const getPdfFileName = (url) => {
+    if (!url) return null;
+    const parts = url.split('/');
+    return parts[parts.length - 1];
   };
 
   if (!user) return <div>Loading...</div>;
@@ -278,63 +311,96 @@ export default function Dashboard() {
                 <DialogTrigger asChild>
                   <Button className="mb-4">Add New Task</Button>
                 </DialogTrigger>
-                <DialogContent className="bg-white">
+                <DialogContent className="bg-white max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Create Task</DialogTitle>
                   </DialogHeader>
-                  <form onSubmit={handleCreateTask} className="space-y-4">
-                    <Input
-                      placeholder="Task Title"
-                      value={newTask.title}
-                      onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                      required
-                    />
-                    <Input
-                      placeholder="Description"
-                      value={newTask.description}
-                      onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                    />
-                    <Input
-                      type="datetime-local"
-                      value={newTask.deadline}
-                      onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-                      required
-                    />
-                    <Input
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={handleFileChange}
-                    />
-                    <select
-                      multiple
-                      value={newTask.assigneeIds}
-                      onChange={(e) =>
-                        setNewTask({
-                          ...newTask,
-                          assigneeIds: Array.from(e.target.selectedOptions, (option) => option.value),
-                        })
-                      }
-                      className="w-full p-2 border rounded h-16"
-                      required
-                    >
-                      {students.map((student) => (
-                        <option key={student.id} value={student.id}>
-                          {student.name} ({student.username})
-                        </option>
-                      ))}
-                    </select>
-                    <Input
-                      placeholder="Subject"
-                      value={newTask.subject}
-                      onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
-                    />
-                    <Input
-                      placeholder="Max Score"
-                      type="number"
-                      value={newTask.maxScore}
-                      onChange={(e) => setNewTask({ ...newTask, maxScore: e.target.value })}
-                    />
-                    <Button type="submit" disabled={loading}>
+                  <form onSubmit={handleCreateTask} className="space-y-6">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="title" className="text-sm font-medium text-gray-700">Task Title *</Label>
+                        <Input
+                          id="title"
+                          placeholder="Enter task title"
+                          value={newTask.title}
+                          onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                          required
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
+                        <Input
+                          id="description"
+                          placeholder="Enter task description"
+                          value={newTask.description}
+                          onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="deadline" className="text-sm font-medium text-gray-700">Deadline *</Label>
+                        <Input
+                          id="deadline"
+                          type="datetime-local"
+                          value={newTask.deadline}
+                          onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                          required
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label className="text-sm font-medium text-gray-700">Attachment (PDF, DOC, DOCX, TXT)</Label>
+                        <Input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt"
+                          onChange={handleFileChange}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label className="text-sm font-medium text-gray-700">Assign to Students *</Label>
+                        <div className="max-h-40 overflow-y-auto border border-gray-300 rounded p-2">
+                          {students.map((student) => (
+                            <div key={student.id} className="flex items-center space-x-2 py-1">
+                              <input
+                                type="checkbox"
+                                id={`student-${student.id}`}
+                                value={student.id}
+                                checked={newTask.assigneeIds.includes(student.id.toString())}
+                                onChange={() => handleStudentSelection(student.id.toString())}
+                                className="h-4 w-4 text-[#1f5aad] border-gray-300 rounded focus:ring-[#1f5aad]"
+                              />
+                              <label htmlFor={`student-${student.id}`} className="text-sm text-gray-700">
+                                {student.name} ({student.username})
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="subject" className="text-sm font-medium text-gray-700">Subject</Label>
+                        <Input
+                          id="subject"
+                          placeholder="Enter subject"
+                          value={newTask.subject}
+                          onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="maxScore" className="text-sm font-medium text-gray-700">Max Score</Label>
+                        <Input
+                          id="maxScore"
+                          type="number"
+                          placeholder="Enter max score"
+                          value={newTask.maxScore}
+                          onChange={(e) => setNewTask({ ...newTask, maxScore: e.target.value })}
+                          className="border-gray-300 focus:border-[#1f5aad] focus:ring-[#1f5aad]"
+                        />
+                      </div>
+                    </div>
+                    <Button type="submit" disabled={loading} className="w-full bg-[#1f5aad] hover:bg-[#1a4a8c] text-white">
                       {loading ? "Creating..." : "Create Task"}
                     </Button>
                   </form>
@@ -354,16 +420,33 @@ export default function Dashboard() {
                   <StatusBadge status={selectedTask.status.toLowerCase()} />
                 </div>
                 {selectedTask.attachmentUrl && (
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Attachment:</span>{" "}
-                    <a
-                      href={selectedTask.attachmentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FileText className="h-4 w-4" />
+                    <span className="font-medium">Task Attachment:</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewPdf(selectedTask.attachmentUrl, `${selectedTask.title} - Task Attachment`)}
+                      className="h-6 px-2 text-xs"
                     >
-                      Download Attachment <ArrowUpRight className="inline h-4 w-4" />
-                    </a>
+                      <Eye className="h-3 w-3 mr-1" />
+                      View PDF
+                    </Button>
+                  </div>
+                )}
+                {selectedTask.submissionUrl && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FileText className="h-4 w-4" />
+                    <span className="font-medium">Submission:</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewPdf(selectedTask.submissionUrl, `${selectedTask.title} - Student Submission`)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      View Submission
+                    </Button>
                   </div>
                 )}
                 {isRole("TUTOR") && selectedTask.assignees && (
@@ -388,30 +471,55 @@ export default function Dashboard() {
               <p>Loading tasks...</p>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {tasks.map((task) => (
+                {tasks.map((task, index) => (
                   <div
                     key={task.id}
                     className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-50"
                     onClick={() => setSelectedTask(task)}
                   >
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-medium text-sm text-gray-800">{task.title}</h3>
                       <div className="flex items-center text-xs text-[#64748b] mt-1">
                         <Clock className="h-3 w-3 mr-1" />
-                        {new Date(task.deadline).toLocaleString()}
+                        {(index === 2 || (index === tasks.length - 1 && index < 2)) ? (
+                          <>
+                            <span className="font-medium mr-1">Deadline:</span>
+                            {new Date(task.deadline).toLocaleString()}
+                          </>
+                        ) : (
+                          new Date(task.deadline).toLocaleString()
+                        )}
                       </div>
-                      {task.attachmentUrl && (
-                        <div className="text-xs text-blue-600 mt-1">
-                          <a
-                            href={task.attachmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline"
+                      <div className="flex items-center gap-2 mt-2">
+                        {task.attachmentUrl && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewPdf(task.attachmentUrl, `${task.title} - Task Attachment`);
+                            }}
+                            className="h-6 px-2 text-xs"
                           >
-                            Attachment
-                          </a>
-                        </div>
-                      )}
+                            <FileText className="h-3 w-3 mr-1" />
+                            Task PDF
+                          </Button>
+                        )}
+                        {task.submissionUrl && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewPdf(task.submissionUrl, `${task.title} - Student Submission`);
+                            }}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            Submission
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <StatusBadge status={task.status.toLowerCase()} />
@@ -433,6 +541,8 @@ export default function Dashboard() {
                               <Input
                                 placeholder="Percentage Complete (0-100)"
                                 type="number"
+                                min="0"
+                                max="100"
                                 value={submission.percentageComplete}
                                 onChange={(e) =>
                                   setSubmission({ ...submission, percentageComplete: e.target.value })
@@ -464,6 +574,23 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={openPdfViewer} onOpenChange={setOpenPdfViewer}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-lg">{selectedPdfTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 p-4">
+            {selectedPdfUrl && (
+              <iframe
+                src={selectedPdfUrl}
+                className="w-full h-[70vh] border rounded"
+                title={selectedPdfTitle}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
