@@ -32,9 +32,9 @@ export function TabsList({ children, className = "", activeTab, setActiveTab }) 
 
 export function TabsTrigger({ value, children, activeTab, setActiveTab }) {
   
-  const Toogle = () =>{
-    setActiveTab(value);
-  }
+  // const Toogle = () =>{
+  //   setActiveTab(value);
+  // }
   return (
     <button
       className={`px-4 py-2 ${activeTab === value ? 'border-b-2 border-[#1f5aad] text-[#1f5aad]' : 'text-[#64748b]'}`}

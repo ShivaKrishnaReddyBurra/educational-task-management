@@ -49,7 +49,6 @@ public class AuthController {
         user.setRole(signupRequest.getRole());
 
         userRepository.save(user);
-        logger.info("User {} registered successfully", signupRequest.getUsername());
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
