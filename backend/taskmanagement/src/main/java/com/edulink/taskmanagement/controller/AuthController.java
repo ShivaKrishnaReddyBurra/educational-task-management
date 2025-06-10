@@ -20,7 +20,7 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signupRequest) {
-        if (userRepository.existsByUsername(signupRequest.getUsername())) {
+        if (userRepository.existsByEmail(signupRequest.getEmail())) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("Error: Username is already taken!"));
         }
@@ -36,7 +36,6 @@ public class AuthController {
         }
 
         User user = new User();
-        user.setUsername(signupRequest.getUsername());
         user.setEmail(signupRequest.getEmail());
         user.setPassword(signupRequest.getPassword()); // Plain text for simplicity
         user.setName(signupRequest.getName());
@@ -59,7 +58,6 @@ public class AuthController {
 
         UserResponse userResponse = new UserResponse(
                 user.getId(),
-                user.getUsername(),
                 user.getEmail(),
                 user.getName(),
                 user.getRole()
