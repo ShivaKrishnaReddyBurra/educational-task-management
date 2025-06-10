@@ -38,7 +38,6 @@ public class UserController {
         logger.info("Fetching current user with userId: {}", userId);
         try {
             User user = userService.getUserById(userId);
-            logger.debug("Current user retrieved: {}", user.getUsername());
             return ResponseEntity.ok(user);
         } catch (Exception e) {
             logger.error("Error fetching current user with userId: {}", userId, e);
@@ -53,7 +52,6 @@ public class UserController {
         logger.info("Updating user with userId: {}", userId);
         try {
             User user = userService.updateUser(userId, updatedUser);
-            logger.info("User {} updated successfully", user.getUsername());
             return ResponseEntity.ok(user);
         } catch (Exception e) {
             logger.error("Error updating user with userId: {}", userId, e);
