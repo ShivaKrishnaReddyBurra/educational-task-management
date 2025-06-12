@@ -408,7 +408,7 @@ export default function Dashboard() {
               </Dialog>
             )}
             {selectedTask ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-800">{selectedTask.title}</h3>
                 <p className="text-sm text-gray-600 italic">{selectedTask.description || "No description provided"}</p>
                 <div className="flex items-center text-sm text-gray-500">
@@ -420,14 +420,17 @@ export default function Dashboard() {
                   <StatusBadge status={selectedTask.status.toLowerCase()} />
                 </div>
                 {selectedTask.attachmentUrl && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <FileText className="h-4 w-4" />
-                    <span className="font-medium">Task Attachment:</span>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span className="font-medium">Task Attachment:</span>
+                      <span className="text-gray-500">{getPdfFileName(selectedTask.attachmentUrl)}</span>
+                    </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleViewPdf(selectedTask.attachmentUrl, `${selectedTask.title} - Task Attachment`)}
-                      className="h-6 px-2 text-xs"
+                      className="h-8 px-3 text-xs border-blue-200 text-blue-700 hover:border-blue-300 transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <Eye className="h-3 w-3 mr-1" />
                       View PDF
@@ -435,14 +438,17 @@ export default function Dashboard() {
                   </div>
                 )}
                 {selectedTask.submissionUrl && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <FileText className="h-4 w-4" />
-                    <span className="font-medium">Submission:</span>
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <FileText className="h-4 w-4 text-green-600" />
+                      <span className="font-medium">Submission:</span>
+                      <span className="text-gray-500">{getPdfFileName(selectedTask.submissionUrl)}</span>
+                    </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleViewPdf(selectedTask.submissionUrl, `${selectedTask.title} - Student Submission`)}
-                      className="h-6 px-2 text-xs"
+                      className="h-8 px-3 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300 transition-colors flex items-center gap-1.5"
                     >
                       <Eye className="h-3 w-3 mr-1" />
                       View Submission
@@ -452,7 +458,7 @@ export default function Dashboard() {
                 {isRole("TUTOR") && selectedTask.assignees && (
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Assignees:</span>{" "}
-                    {selectedTask.assignees.map((a) => a.username).join(", ")}
+                    {selectedTask.assignees.map((a) => a.name).join(", ")}
                   </p>
                 )}
               </div>
@@ -474,23 +480,28 @@ export default function Dashboard() {
                 {tasks.map((task, index) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-50"
+                    className="p-4 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
                     onClick={() => setSelectedTask(task)}
                   >
-                    <div className="flex-1">
-                      <h3 className="font-medium text-sm text-gray-800">{task.title}</h3>
-                      <div className="flex items-center text-xs text-[#64748b] mt-1">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {(index === 2 || (index === tasks.length - 1 && index < 2)) ? (
-                          <>
-                            <span className="font-medium mr-1">Deadline:</span>
-                            {new Date(task.deadline).toLocaleString()}
-                          </>
-                        ) : (
-                          new Date(task.deadline).toLocaleString()
-                        )}
+                    {/* Task Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm text-gray-800 truncate mb-1">{task.title}</h3>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
+                          <span className="font-medium mr-1">Due:</span>
+                          <span>{new Date(task.deadline).toLocaleDateString()} at {new Date(task.deadline).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex items-center ml-4">
+                        <StatusBadge status={task.status.toLowerCase()} />
+                      </div>
+                    </div>
+
+                    {/* Action Buttons Section */}
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                      {/* Left side - PDF Buttons */}
+                      <div className="flex items-center gap-2">
                         {task.attachmentUrl && (
                           <Button
                             size="sm"
@@ -499,9 +510,9 @@ export default function Dashboard() {
                               e.stopPropagation();
                               handleViewPdf(task.attachmentUrl, `${task.title} - Task Attachment`);
                             }}
-                            className="h-6 px-2 text-xs"
+                            className="h-8 px-3 text-xs font-medium border-blue-200 text-blue-700  transition-all duration-200 flex items-center gap-1.5 cursor-pointer"
                           >
-                            <FileText className="h-3 w-3 mr-1" />
+                            <FileText className="h-3 w-3" />
                             Task PDF
                           </Button>
                         )}
@@ -513,23 +524,26 @@ export default function Dashboard() {
                               e.stopPropagation();
                               handleViewPdf(task.submissionUrl, `${task.title} - Student Submission`);
                             }}
-                            className="h-6 px-2 text-xs"
+                            className="h-8 px-3 text-xs font-medium bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all duration-200 flex items-center gap-1.5"
                           >
-                            <FileText className="h-3 w-3 mr-1" />
+                            <FileText className="h-3 w-3" />
                             Submission
                           </Button>
                         )}
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <StatusBadge status={task.status.toLowerCase()} />
+
+                      {/* Right side - Submit Button (for students only) */}
                       {isRole("STUDENT") && task.status !== "COMPLETED" && (
                         <Dialog
                           open={openSubmitDialog === task.id}
                           onOpenChange={(open) => setOpenSubmitDialog(open ? task.id : null)}
                         >
                           <DialogTrigger asChild>
-                            <Button size="sm" onClick={(e) => e.stopPropagation()}>
+                            <Button 
+                              size="sm" 
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-8 px-4 text-xs font-medium bg-[#1f5aad] hover:bg-[#1a4a8c] text-white transition-all duration-200"
+                            >
                               Submit
                             </Button>
                           </DialogTrigger>
@@ -575,18 +589,24 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Fixed PDF Viewer Modal */}
       <Dialog open={openPdfViewer} onOpenChange={setOpenPdfViewer}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-lg">{selectedPdfTitle}</DialogTitle>
+        <DialogContent className="max-w-7xl max-h-[95vh] p-0 bg-white overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b bg-gray-50">
+            <DialogTitle className="text-lg font-semibold text-gray-800 truncate">
+              {selectedPdfTitle}
+            </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-4 bg-gray-100">
             {selectedPdfUrl && (
-              <iframe
-                src={selectedPdfUrl}
-                className="w-full h-[70vh] border rounded"
-                title={selectedPdfTitle}
-              />
+              <div className="w-full h-[80vh] bg-white rounded-lg shadow-lg overflow-hidden">
+                <iframe
+                  src={selectedPdfUrl}
+                  className="w-full h-full border-0"
+                  title={selectedPdfTitle}
+                  style={{ minHeight: '600px' }}
+                />
+              </div>
             )}
           </div>
         </DialogContent>
