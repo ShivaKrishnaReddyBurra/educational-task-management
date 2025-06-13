@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,6 +23,12 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @GetMapping("/test")
+    public ResponseEntity<?> getMethodName() {
+        return ResponseEntity.ok(new MessageResponse("api is running"));
+    }
+    
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signupRequest) {

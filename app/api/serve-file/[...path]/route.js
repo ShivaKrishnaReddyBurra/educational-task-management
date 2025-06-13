@@ -12,10 +12,10 @@ export async function GET(request, { params }) {
 
   try {
     const fileName = Array.isArray(filePath) ? filePath.join('/') : filePath;
-    const fullPath = path.join(process.cwd(), '/backend/taskmanagement/uploads', fileName);
+    const fullPath = path.join(process.cwd(), 'uploads', fileName);
     
     // Security check: ensure the file is within uploads directory
-    const uploadsDir = path.join(process.cwd(), '/backend/taskmanagement/uploads');
+    const uploadsDir = path.join(process.cwd(), 'uploads');
     const resolvedPath = path.resolve(fullPath);
     const resolvedUploadsDir = path.resolve(uploadsDir);
     
